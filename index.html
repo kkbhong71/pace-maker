@@ -98,8 +98,10 @@ body::before {
 }
 .input-glass:focus { border-color:var(--cyan); box-shadow:0 0 12px rgba(0,240,255,0.1); }
 .input-glass::placeholder { color:var(--text-muted); }
-select.input-glass { appearance:none; cursor:pointer; }
+select.input-glass { cursor:pointer; background-color:#0f0f23; color:var(--text-primary); }
+select.input-glass option { background:#0f0f23; color:var(--text-primary); padding:8px; }
 textarea.input-glass { resize:vertical; min-height:60px; }
+input[type="date"].input-glass { color-scheme:dark; }
 
 /* === Tab bar === */
 .tab-bar { display:flex; gap:4px; padding:4px; border-radius:12px; background:rgba(255,255,255,0.03); }
@@ -224,15 +226,22 @@ textarea.input-glass { resize:vertical; min-height:60px; }
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <!-- Year selector -->
-        <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:rgba(255,255,255,0.03);">
-          <button v-for="y in years" :key="y.value"
-            @click="selectedYear=y.value; loadAll()"
-            :class="{'neon-cyan': selectedYear===y.value}"
-            style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;transition:all 0.3s;font-family:'Orbitron',monospace;"
-            :style="{background: selectedYear===y.value ? 'rgba(0,240,255,0.12)' : 'transparent', color: selectedYear===y.value ? 'var(--cyan)' : 'var(--text-muted)'}">
-            {{ y.label }}
+        <!-- Year selector (dropdown) -->
+        <div style="position:relative;">
+          <button @click="yearDropOpen=!yearDropOpen" class="btn-neon sm" style="font-family:'Orbitron',monospace;min-width:56px;">
+            {{ currentYearLabel }} ▾
           </button>
+          <div v-if="yearDropOpen" style="position:absolute;top:calc(100% + 6px);right:0;z-index:60;min-width:100px;border-radius:12px;overflow:hidden;background:rgba(12,12,30,0.95);border:1px solid rgba(0,240,255,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div v-for="y in years" :key="y.value"
+              @click="selectedYear=y.value; yearDropOpen=false; loadAll()"
+              style="padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;display:flex;justify-content:space-between;align-items:center;"
+              :style="{background: selectedYear===y.value?'rgba(0,240,255,0.12)':'transparent', color: selectedYear===y.value?'var(--cyan)':'var(--text-muted)'}"
+              @mouseenter="$event.target.style.background=selectedYear===y.value?'rgba(0,240,255,0.15)':'rgba(255,255,255,0.04)'"
+              @mouseleave="$event.target.style.background=selectedYear===y.value?'rgba(0,240,255,0.12)':'transparent'">
+              <span>{{ y.label }}</span>
+              <span style="font-size:11px;opacity:0.5;">{{ y.value }}</span>
+            </div>
+          </div>
         </div>
         <!-- Mode toggle -->
         <button @click="parentMode=!parentMode" class="btn-neon sm" :class="{gold: parentMode}" :title="parentMode?'학생 모드로':'학부모 모드로'">
@@ -386,7 +395,7 @@ textarea.input-glass { resize:vertical; min-height:60px; }
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
             <span class="subj-chip" :style="chipStyle(r.과목)">{{ r.과목 }}</span>
-            <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">{{ r.날짜 }}</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">{{ r.날짜 }} {{ getDayName(r.날짜) }}</span>
           </div>
           <div style="display:flex;gap:4px;">
             <button @click="openRecordModal(r)" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;" title="수정">✏️</button>
@@ -434,6 +443,67 @@ textarea.input-glass { resize:vertical; min-height:60px; }
   </div>
 
   <!-- ====== TAB: Subjects ====== -->
+  <!-- ====== TAB: Videos ====== -->
+  <div v-if="activeTab==='videos'">
+    <!-- Search bar -->
+    <div class="glass fade-up" style="padding:16px;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">🔍 유튜브 학습 검색</div>
+      <div style="display:flex;gap:8px;">
+        <select v-model="videoSearchSubj" class="input-glass" style="width:120px;">
+          <option value="">과목 선택</option>
+          <option v-for="s in subjects" :key="s.id" :value="s.과목명">{{ s.과목명 }}</option>
+        </select>
+        <input v-model="videoSearchQuery" class="input-glass" placeholder="검색어 입력 (예: 이차방정식)" @keyup.enter="openYoutubeSearch()">
+        <button @click="openYoutubeSearch()" class="btn-neon sm" style="white-space:nowrap;">검색</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+        <button v-for="q in quickSearches" :key="q" @click="videoSearchQuery=q; openYoutubeSearch()" class="btn-neon sm" style="font-size:11px;padding:4px 10px;">{{ q }}</button>
+      </div>
+    </div>
+
+    <!-- Subject channels -->
+    <div v-for="s in subjects" :key="s.id" class="fade-up" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:10px;height:10px;border-radius:3px;" :style="{background:s.컬러코드}"></div>
+        <span style="font-size:15px;font-weight:700;" :style="{color:s.컬러코드}">{{ s.과목명 }}</span>
+        <button @click="openYoutubeSearch(s.과목명+' 고등학교 강의')" class="btn-neon sm" style="font-size:10px;padding:2px 8px;margin-left:auto;">전체 검색 →</button>
+      </div>
+      <div v-if="eduChannels[s.과목명]" style="display:flex;flex-direction:column;gap:8px;">
+        <a v-for="ch in eduChannels[s.과목명]" :key="ch.id" :href="'https://www.youtube.com/channel/'+ch.id" target="_blank" rel="noopener"
+          class="record-card" style="text-decoration:none;display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <div style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;"
+            :style="{background:s.컬러코드+'15', border:'1px solid '+s.컬러코드+'33'}">
+            {{ ch.thumb }}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary);">{{ ch.name }}</div>
+            <div style="font-size:11px;color:var(--text-muted);">{{ ch.desc }}</div>
+          </div>
+          <div style="font-size:18px;opacity:0.3;">▶</div>
+        </a>
+      </div>
+      <div v-else style="padding:12px;font-size:12px;color:var(--text-muted);text-align:center;">
+        이 과목의 채널을 등록해보세요
+      </div>
+    </div>
+
+    <!-- EBS / 추천 -->
+    <div class="glass fade-up" style="padding:16px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">📺 추천 학습 플랫폼</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="https://www.ebsi.co.kr" target="_blank" rel="noopener" class="record-card" style="text-decoration:none;display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:8px;background:rgba(0,240,255,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;">📡</div>
+          <div><div style="font-size:14px;font-weight:600;color:var(--text-primary);">EBSi</div><div style="font-size:11px;color:var(--text-muted);">EBS 수능 강의 (무료)</div></div>
+        </a>
+        <a href="https://www.khan-academy.kr" target="_blank" rel="noopener" class="record-card" style="text-decoration:none;display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:8px;background:rgba(52,211,153,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;">🎓</div>
+          <div><div style="font-size:14px;font-weight:600;color:var(--text-primary);">칸아카데미</div><div style="font-size:11px;color:var(--text-muted);">수학·과학 무료 강의</div></div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TAB: Subjects ====== -->
   <div v-if="activeTab==='subjects'">
     <div class="fade-up" style="margin-bottom:12px;">
       <button @click="openSubjectModal()" class="btn-neon purple" style="width:100%;border-color:rgba(168,85,247,0.4);color:var(--purple);background:rgba(168,85,247,0.06);">
@@ -466,7 +536,10 @@ textarea.input-glass { resize:vertical; min-height:60px; }
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
         <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">날짜</label>
-        <input type="date" v-model="editRecord.날짜" class="input-glass">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" v-model="editRecord.날짜" class="input-glass" style="flex:1;">
+          <span style="font-size:13px;color:var(--cyan);white-space:nowrap;min-width:36px;">{{ getDayName(editRecord.날짜) }}</span>
+        </div>
       </div>
       <div>
         <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">과목</label>
@@ -584,13 +657,51 @@ createApp({
       { value:'2028', label:'고3' }
     ];
     const parentMode = ref(false);
+    const yearDropOpen = ref(false);
+    const currentYearLabel = computed(() => years.find(y=>y.value===selectedYear.value)?.label || '고1');
     const activeTab = ref('dashboard');
     const tabs = [
       { id:'dashboard', icon:'📊', label:'대시보드' },
       { id:'records', icon:'📝', label:'기록' },
       { id:'goals', icon:'🎯', label:'목표' },
+      { id:'videos', icon:'🎬', label:'영상학습' },
       { id:'subjects', icon:'📘', label:'과목' }
     ];
+
+    // 과목별 유튜브 교육 채널 DB
+    const eduChannels = {
+      '국어': [
+        { name:'이지영T 국어', id:'UCxp-H0kSR_VnfXoKJMwEx4Q', desc:'수능 국어 전 영역', thumb:'🏆' },
+        { name:'박광일 국어', id:'UC7E05sBx7VxBly0SjNpCo5Q', desc:'문학·비문학 기초', thumb:'📖' },
+        { name:'국어의 기술', id:'UCGkps0mfsB_kJJGwfS1-WOQ', desc:'독서·문법 개념', thumb:'📝' },
+      ],
+      '수학': [
+        { name:'수악중독', id:'UCgj-1DC3Inl0V1YwEEbVEKQ', desc:'수학 전 범위 강의', thumb:'🔢' },
+        { name:'칸아카데미 한국', id:'UCjxRbN6U9E6ZRqJDt5oWkLw', desc:'개념별 체계 학습', thumb:'🎓' },
+        { name:'이하영 수학', id:'UCJbQMKR4H6Ci8LSEVPxVmhA', desc:'내신+수능 수학', thumb:'📐' },
+      ],
+      '영어': [
+        { name:'영어의신 이명학', id:'UCEl8zDOkpX8JNYlCs0PExzg', desc:'수능 영어 독해', thumb:'🌍' },
+        { name:'라이브아카데미', id:'UCGDA1e6qQSAH0R9hoip9VrQ', desc:'영어 회화+리스닝', thumb:'🎧' },
+        { name:'EBS English', id:'UCBiGUcXhL6uP-rBOGeDLnYQ', desc:'EBS 공식 영어', thumb:'📺' },
+      ],
+      '역사(한국사)': [
+        { name:'큰별쌤 최태성', id:'UCYk2p5Qpd8VUwNbNFI4JjKQ', desc:'한국사 대표 강사', thumb:'🏛️' },
+        { name:'벼락치기 한국사', id:'UCUtCYcHBHBKgE74e0VKpYAA', desc:'시대별 핵심 정리', thumb:'⚡' },
+        { name:'역사채널e', id:'UCmlrjPe3OvlBGfHBhwJjxqA', desc:'EBS 역사 다큐', thumb:'🎬' },
+      ],
+      '통합사회': [
+        { name:'이지영사회', id:'UC0eGdaFHkalBgYvk4KImbig', desc:'통합사회 개념', thumb:'🌏' },
+        { name:'사회탐구 정리', id:'UCsB1KG9njJSQVXEiW-DRTWA', desc:'사회 전 영역', thumb:'📊' },
+      ],
+      '통합과학': [
+        { name:'과학쿠키', id:'UCt9nYeSz_bPAI0K1MJTGXbw', desc:'재미있는 과학 원리', thumb:'🍪' },
+        { name:'과학드림', id:'UCfHPj6MDRQA7MkjYPGmVVzQ', desc:'과학 실험·원리', thumb:'🔬' },
+        { name:'EBS 과학', id:'UCDut1MI4F1PvIjhm0vwkGJQ', desc:'EBS 공식 과학', thumb:'🧪' },
+      ]
+    };
+    const videoSearchSubj = ref('');
+    const videoSearchQuery = ref('');
     const loading = ref(false);
     const saving = ref(false);
     const toasts = ref([]);
@@ -848,6 +959,13 @@ createApp({
       });
     }
 
+    const quickSearches = ['수능 기출', '1등급 공부법', 'EBS 연계', '내신 대비', '개념 정리'];
+    function openYoutubeSearch(override) {
+      const q = override || ((videoSearchSubj.value?videoSearchSubj.value+' ':'')+videoSearchQuery.value).trim();
+      if (!q) { toast('검색어를 입력해주세요','var(--pink)'); return; }
+      window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(q+' 고등학교 강의'), '_blank');
+    }
+
     // --- Helpers ---
     function chipStyle(subj) {
       const found = subjects.value.find(s => s.과목명 === subj);
@@ -864,6 +982,11 @@ createApp({
       if (m<60) return m+'분';
       return Math.floor(m/60)+'h '+((m%60)||'');
     }
+    function getDayName(d) {
+      if (!d) return '';
+      const days = ['일','월','화','수','목','금','토'];
+      return '(' + days[new Date(d+'T00:00:00').getDay()] + ')';
+    }
     function formatDate(d) {
       if (!d) return '';
       try { return new Date(d).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
@@ -871,7 +994,12 @@ createApp({
     }
 
     // --- Init ---
-    onMounted(() => { loadAll(); });
+    onMounted(() => {
+      loadAll();
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-yeardrop]') && !e.target.closest('.btn-neon')) yearDropOpen.value = false;
+      });
+    });
 
     // Watch tab changes for chart re-render
     watch(activeTab, async (t) => {
@@ -880,17 +1008,19 @@ createApp({
 
     return {
       selectedYear, years, parentMode, activeTab, tabs,
+      yearDropOpen, currentYearLabel,
       loading, saving, toasts,
       records, subjects, cheers, goals, stats,
       filterSubject, filteredRecords, goalPercent,
       showRecordModal, editRecord, showGoalModal, editGoal,
       showSubjectModal, editSubject,
       cheerMsg, quickEmojis,
+      eduChannels, videoSearchSubj, videoSearchQuery, quickSearches, openYoutubeSearch,
       openRecordModal, saveRecord, delRecord,
       openGoalModal, saveGoal, toggleGoal, delGoal,
       openSubjectModal, saveSubject, delSubject,
       sendCheer,
-      chipStyle, statusIcon, undColor, formatMin, formatDate,
+      chipStyle, statusIcon, undColor, formatMin, formatDate, getDayName,
       loadAll, toast
     };
   }
