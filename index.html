@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pace Maker — 학습 페이스 메이커</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #06060f;
+  --bg-card: rgba(15, 15, 35, 0.65);
+  --glass-border: rgba(255,255,255,0.08);
+  --cyan: #00f0ff;
+  --pink: #ff3e8e;
+  --purple: #a855f7;
+  --gold: #d4a017;
+  --gold-light: #f5d76e;
+  --green: #34d399;
+  --text-primary: #e8eaed;
+  --text-muted: #7a7f8a;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow-x:hidden; }
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+
+/* === Animated BG === */
+body::before {
+  content:''; position:fixed; inset:0; z-index:0;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 30%, rgba(0,240,255,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 80% 70%, rgba(255,62,142,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(168,85,247,0.04) 0%, transparent 70%);
+}
+.grid-bg {
+  position:fixed; inset:0; z-index:0; opacity:0.03;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* === Glass card === */
+.glass {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+}
+
+/* === Neon glow util === */
+.neon-cyan { color: var(--cyan); text-shadow: 0 0 8px rgba(0,240,255,0.5); }
+.neon-pink { color: var(--pink); text-shadow: 0 0 8px rgba(255,62,142,0.5); }
+.neon-purple { color: var(--purple); text-shadow: 0 0 8px rgba(168,85,247,0.5); }
+.neon-gold { color: var(--gold-light); text-shadow: 0 0 10px rgba(212,160,23,0.6); }
+
+.glow-border-cyan { box-shadow: 0 0 0 1px rgba(0,240,255,0.3), 0 0 20px rgba(0,240,255,0.08); }
+.glow-border-pink { box-shadow: 0 0 0 1px rgba(255,62,142,0.3), 0 0 20px rgba(255,62,142,0.08); }
+.glow-border-gold { box-shadow: 0 0 0 1px rgba(212,160,23,0.4), 0 0 20px rgba(212,160,23,0.1); }
+
+/* === Buttons === */
+.btn-neon {
+  position:relative; display:inline-flex; align-items:center; gap:6px;
+  padding: 10px 20px; border-radius:10px; font-weight:600; font-size:14px;
+  border:1px solid rgba(0,240,255,0.4); color:var(--cyan);
+  background: rgba(0,240,255,0.06);
+  transition: all 0.3s cubic-bezier(.4,0,.2,1); cursor:pointer;
+}
+.btn-neon:hover { background:rgba(0,240,255,0.15); box-shadow:0 0 24px rgba(0,240,255,0.2); transform:translateY(-1px); }
+.btn-neon:active { transform:scale(0.97); }
+.btn-neon.pink { border-color:rgba(255,62,142,0.4); color:var(--pink); background:rgba(255,62,142,0.06); }
+.btn-neon.pink:hover { background:rgba(255,62,142,0.15); box-shadow:0 0 24px rgba(255,62,142,0.2); }
+.btn-neon.gold { border-color:rgba(212,160,23,0.4); color:var(--gold-light); background:rgba(212,160,23,0.06); }
+.btn-neon.gold:hover { background:rgba(212,160,23,0.15); box-shadow:0 0 24px rgba(212,160,23,0.15); }
+.btn-neon.green { border-color:rgba(52,211,153,0.4); color:var(--green); background:rgba(52,211,153,0.06); }
+.btn-neon.green:hover { background:rgba(52,211,153,0.15); box-shadow:0 0 24px rgba(52,211,153,0.15); }
+.btn-neon.sm { padding:6px 14px; font-size:12px; border-radius:8px; }
+
+/* === Inputs === */
+.input-glass {
+  width:100%; padding:10px 14px; border-radius:10px; font-size:14px;
+  background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-primary); outline:none; transition:border 0.3s;
+  font-family:'Noto Sans KR', sans-serif;
+}
+.input-glass:focus { border-color:var(--cyan); box-shadow:0 0 12px rgba(0,240,255,0.1); }
+.input-glass::placeholder { color:var(--text-muted); }
+select.input-glass { appearance:none; cursor:pointer; }
+textarea.input-glass { resize:vertical; min-height:60px; }
+
+/* === Tab bar === */
+.tab-bar { display:flex; gap:4px; padding:4px; border-radius:12px; background:rgba(255,255,255,0.03); }
+.tab-item {
+  flex:1; text-align:center; padding:10px 6px; border-radius:10px;
+  font-size:12px; font-weight:500; cursor:pointer; transition:all 0.3s;
+  color:var(--text-muted);
+}
+.tab-item.active { background:rgba(0,240,255,0.1); color:var(--cyan); font-weight:700; }
+.tab-item:hover:not(.active) { color:var(--text-primary); }
+
+/* === Stat card === */
+.stat-card {
+  padding:20px; border-radius:14px; text-align:center;
+  background: var(--bg-card); backdrop-filter:blur(16px);
+  border:1px solid var(--glass-border);
+}
+.stat-val { font-family:'Orbitron',monospace; font-size:28px; font-weight:900; }
+.stat-label { font-size:11px; color:var(--text-muted); margin-top:4px; letter-spacing:1px; text-transform:uppercase; }
+
+/* === Understanding bar === */
+.und-bar { display:flex; gap:4px; }
+.und-dot {
+  width:24px; height:24px; border-radius:6px; cursor:pointer;
+  border:1px solid rgba(255,255,255,0.1); transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; font-size:10px;
+}
+.und-dot.active { border-color:transparent; }
+
+/* === Record card === */
+.record-card {
+  padding:16px; border-radius:12px; border:1px solid var(--glass-border);
+  background:rgba(15,15,35,0.5); transition:all 0.3s;
+}
+.record-card:hover { border-color:rgba(0,240,255,0.2); background:rgba(15,15,40,0.7); }
+
+/* === Subject chip === */
+.subj-chip {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;
+}
+
+/* === Modal overlay === */
+.modal-overlay {
+  position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center; padding:16px;
+}
+.modal-box {
+  width:100%; max-width:480px; max-height:85vh; overflow-y:auto;
+  border-radius:20px; padding:28px;
+  background:rgba(12,12,30,0.95); border:1px solid rgba(0,240,255,0.15);
+  box-shadow:0 0 60px rgba(0,240,255,0.08);
+}
+
+/* === Toast === */
+.toast-container { position:fixed; top:20px; right:20px; z-index:200; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  padding:12px 20px; border-radius:10px; font-size:13px; font-weight:500;
+  background:rgba(0,240,255,0.15); border:1px solid rgba(0,240,255,0.3);
+  color:var(--cyan); animation: toastIn 0.3s ease;
+}
+@keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+
+/* === Cheer bubble === */
+.cheer-bubble {
+  padding:14px 18px; border-radius:16px 16px 16px 4px;
+  background:rgba(212,160,23,0.08); border:1px solid rgba(212,160,23,0.2);
+  font-size:14px;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
+
+/* === Animations === */
+@keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.fade-up { animation: fadeUp 0.4s ease both; }
+.fade-up-d1 { animation-delay:0.05s; }
+.fade-up-d2 { animation-delay:0.1s; }
+.fade-up-d3 { animation-delay:0.15s; }
+.fade-up-d4 { animation-delay:0.2s; }
+
+@keyframes pulse-glow { 0%,100%{ box-shadow:0 0 8px rgba(0,240,255,0.2); } 50%{ box-shadow:0 0 20px rgba(0,240,255,0.4); } }
+.pulse-glow { animation:pulse-glow 2s ease-in-out infinite; }
+
+/* === Mobile safe area === */
+.safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+/* === Loading skeleton === */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div id="app" style="position:relative; z-index:1;">
+
+<!-- ============ TOAST ============ -->
+<div class="toast-container">
+  <div v-for="(t,i) in toasts" :key="i" class="toast" :style="{borderColor: t.color || 'rgba(0,240,255,0.3)', color: t.color || 'var(--cyan)', background: (t.bg || 'rgba(0,240,255,0.15)')}">
+    {{ t.msg }}
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="glass" style="position:sticky;top:0;z-index:50;border-radius:0 0 16px 16px;border-top:none;padding:12px 16px;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-family:'Orbitron',monospace;font-size:20px;font-weight:900;" class="neon-cyan">PM</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:-0.5px;">Pace Maker</div>
+          <div style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">STUDY DASHBOARD</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <!-- Year selector -->
+        <div style="display:flex;gap:2px;padding:3px;border-radius:10px;background:rgba(255,255,255,0.03);">
+          <button v-for="y in years" :key="y.value"
+            @click="selectedYear=y.value; loadAll()"
+            :class="{'neon-cyan': selectedYear===y.value}"
+            style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;transition:all 0.3s;font-family:'Orbitron',monospace;"
+            :style="{background: selectedYear===y.value ? 'rgba(0,240,255,0.12)' : 'transparent', color: selectedYear===y.value ? 'var(--cyan)' : 'var(--text-muted)'}">
+            {{ y.label }}
+          </button>
+        </div>
+        <!-- Mode toggle -->
+        <button @click="parentMode=!parentMode" class="btn-neon sm" :class="{gold: parentMode}" :title="parentMode?'학생 모드로':'학부모 모드로'">
+          {{ parentMode ? '👨‍👩‍👦' : '📚' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN CONTENT ============ -->
+<main style="max-width:600px;margin:0 auto;padding:12px 12px 80px 12px;">
+
+<!-- === PARENT MODE === -->
+<template v-if="parentMode">
+  <div class="fade-up" style="margin-top:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="font-size:24px;">👨‍👩‍👦</span>
+      <div>
+        <div style="font-size:18px;font-weight:800;" class="neon-gold">학부모 모드</div>
+        <div style="font-size:12px;color:var(--text-muted);">우리 아이의 학습 현황을 확인하고 응원해주세요</div>
+      </div>
+    </div>
+
+    <!-- Parent Stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div class="stat-card glow-border-gold">
+        <div class="stat-val neon-gold">{{ stats.totalRecords || 0 }}</div>
+        <div class="stat-label">총 학습 기록</div>
+      </div>
+      <div class="stat-card glow-border-gold">
+        <div class="stat-val neon-gold">{{ stats.streak || 0 }}<span style="font-size:14px;">일</span></div>
+        <div class="stat-label">연속 학습</div>
+      </div>
+      <div class="stat-card glow-border-gold">
+        <div class="stat-val neon-gold">{{ formatMin(stats.totalMinutes) }}</div>
+        <div class="stat-label">총 학습 시간</div>
+      </div>
+      <div class="stat-card glow-border-gold">
+        <div class="stat-val neon-gold">{{ stats.completionRate || 0 }}<span style="font-size:14px;">%</span></div>
+        <div class="stat-label">완료율</div>
+      </div>
+    </div>
+
+    <!-- Quick cheer -->
+    <div class="glass" style="padding:20px;margin-bottom:16px;" :class="'glow-border-gold'">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px;">💌 빠른 응원 보내기</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <button v-for="e in quickEmojis" :key="e" @click="sendCheer(e)" class="btn-neon gold sm" style="font-size:18px;padding:8px 14px;">{{ e }}</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input v-model="cheerMsg" class="input-glass" placeholder="응원 메시지를 입력하세요..." @keyup.enter="sendCheer(cheerMsg); cheerMsg='';"
+          style="border-color:rgba(212,160,23,0.2);">
+        <button @click="sendCheer(cheerMsg); cheerMsg='';" class="btn-neon gold" :disabled="!cheerMsg.trim()">전송</button>
+      </div>
+    </div>
+
+    <!-- Cheer history -->
+    <div v-if="cheers.length" style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">📝 보낸 응원 기록</div>
+      <div v-for="c in cheers.slice().reverse().slice(0,20)" :key="c.id" class="cheer-bubble" style="margin-bottom:8px;">
+        <div style="font-size:14px;">{{ c.메시지 }}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">{{ formatDate(c.생성일시) }}</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<!-- === STUDENT MODE === -->
+<template v-else>
+
+  <!-- Tab Navigation -->
+  <div class="tab-bar fade-up" style="margin-top:12px;margin-bottom:16px;">
+    <div v-for="t in tabs" :key="t.id" class="tab-item" :class="{active:activeTab===t.id}" @click="activeTab=t.id">
+      <div style="font-size:16px;">{{ t.icon }}</div>
+      <div>{{ t.label }}</div>
+    </div>
+  </div>
+
+  <!-- ====== TAB: Dashboard ====== -->
+  <div v-if="activeTab==='dashboard'">
+    <!-- Stats row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;" class="fade-up">
+      <div class="stat-card glow-border-cyan">
+        <div class="stat-val neon-cyan">{{ stats.streak || 0 }}<span style="font-size:14px;">일</span></div>
+        <div class="stat-label">🔥 연속 학습</div>
+      </div>
+      <div class="stat-card glow-border-pink">
+        <div class="stat-val neon-pink">{{ formatMin(stats.totalMinutes) }}</div>
+        <div class="stat-label">⏱ 총 학습시간</div>
+      </div>
+      <div class="stat-card glow-border-cyan">
+        <div class="stat-val neon-purple">{{ stats.avgUnderstanding || 0 }}</div>
+        <div class="stat-label">📊 평균 이해도</div>
+      </div>
+      <div class="stat-card glow-border-pink">
+        <div class="stat-val neon-cyan">{{ stats.completionRate || 0 }}<span style="font-size:14px;">%</span></div>
+        <div class="stat-label">✅ 완료율</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="glass fade-up fade-up-d1" style="padding:20px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">📈 과목별 학습시간</div>
+      <canvas id="subjectChart" height="200"></canvas>
+    </div>
+
+    <!-- Daily chart -->
+    <div class="glass fade-up fade-up-d2" style="padding:20px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">📅 일별 학습 추이</div>
+      <canvas id="dailyChart" height="160"></canvas>
+    </div>
+
+    <!-- Goals progress -->
+    <div class="glass fade-up fade-up-d3" style="padding:20px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;">🎯 목표 달성</div>
+        <span style="font-size:12px;color:var(--text-muted);">{{ stats.goalDone || 0 }}/{{ stats.goalTotal || 0 }}</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+        <div :style="{width: goalPercent+'%', background:'linear-gradient(90deg,var(--cyan),var(--purple))', height:'100%', borderRadius:'4px', transition:'width 0.6s ease'}"></div>
+      </div>
+    </div>
+
+    <!-- Recent cheers -->
+    <div v-if="cheers.length" class="glass fade-up fade-up-d4" style="padding:20px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;">💌 부모님 응원</div>
+      <div v-for="c in cheers.slice().reverse().slice(0,5)" :key="c.id" class="cheer-bubble" style="margin-bottom:8px;">
+        {{ c.메시지 }}
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">{{ formatDate(c.생성일시) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TAB: Records ====== -->
+  <div v-if="activeTab==='records'">
+    <div style="display:flex;gap:8px;margin-bottom:12px;" class="fade-up">
+      <button @click="openRecordModal()" class="btn-neon" style="flex:1;">+ 학습 기록 추가</button>
+      <select v-model="filterSubject" class="input-glass" style="width:auto;min-width:100px;">
+        <option value="">전체 과목</option>
+        <option v-for="s in subjects" :key="s.id" :value="s.과목명">{{ s.과목명 }}</option>
+      </select>
+    </div>
+
+    <!-- Record list -->
+    <div v-if="loading" style="display:flex;flex-direction:column;gap:10px;">
+      <div v-for="i in 3" :key="i" class="skeleton" style="height:80px;"></div>
+    </div>
+    <div v-else>
+      <div v-for="r in filteredRecords" :key="r.id" class="record-card fade-up" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <span class="subj-chip" :style="chipStyle(r.과목)">{{ r.과목 }}</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">{{ r.날짜 }}</span>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button @click="openRecordModal(r)" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;" title="수정">✏️</button>
+            <button @click="delRecord(r.id)" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;" title="삭제">🗑</button>
+          </div>
+        </div>
+        <div style="font-size:14px;font-weight:600;margin-top:8px;">{{ r.내용 }}</div>
+        <div style="display:flex;gap:12px;margin-top:6px;font-size:11px;color:var(--text-muted);">
+          <span :style="{color: r.상태==='완료'?'var(--green)':r.상태==='진행중'?'var(--cyan)':'var(--pink)'}">{{ statusIcon(r.상태) }} {{ r.상태 }}</span>
+          <span>이해도 {{ r.이해도 }}/5</span>
+          <span v-if="r['시간(분)']">{{ r['시간(분)'] }}분</span>
+        </div>
+        <div v-if="r.코멘트" style="font-size:12px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.05);">
+          💬 {{ r.코멘트 }}
+        </div>
+      </div>
+      <div v-if="!filteredRecords.length" style="text-align:center;padding:40px;color:var(--text-muted);font-size:14px;">
+        아직 학습 기록이 없어요.<br>첫 기록을 추가해보세요! 📝
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TAB: Goals ====== -->
+  <div v-if="activeTab==='goals'">
+    <div class="fade-up" style="margin-bottom:12px;">
+      <button @click="openGoalModal()" class="btn-neon green" style="width:100%;">+ 새 목표 추가</button>
+    </div>
+    <div v-for="g in goals" :key="g.id" class="record-card fade-up" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button @click="toggleGoal(g)" style="background:none;border:none;cursor:pointer;font-size:22px;">
+          {{ g.달성여부==='TRUE'||g.달성여부===true ? '✅' : '⬜' }}
+        </button>
+        <div style="flex:1;">
+          <span class="subj-chip" :style="chipStyle(g.과목)" style="font-size:10px;">{{ g.과목 }}</span>
+          <div style="font-size:14px;margin-top:4px;" :style="{textDecoration: (g.달성여부==='TRUE'||g.달성여부===true)?'line-through':'none', opacity:(g.달성여부==='TRUE'||g.달성여부===true)?0.5:1}">
+            {{ g.목표내용 }}
+          </div>
+        </div>
+        <button @click="delGoal(g.id)" style="background:none;border:none;cursor:pointer;opacity:0.4;">🗑</button>
+      </div>
+    </div>
+    <div v-if="!goals.length" style="text-align:center;padding:40px;color:var(--text-muted);font-size:14px;">
+      목표를 설정하고 하나씩 달성해보세요! 🎯
+    </div>
+  </div>
+
+  <!-- ====== TAB: Subjects ====== -->
+  <div v-if="activeTab==='subjects'">
+    <div class="fade-up" style="margin-bottom:12px;">
+      <button @click="openSubjectModal()" class="btn-neon purple" style="width:100%;border-color:rgba(168,85,247,0.4);color:var(--purple);background:rgba(168,85,247,0.06);">
+        + 과목 추가
+      </button>
+    </div>
+    <div v-for="s in subjects" :key="s.id" class="record-card fade-up" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:14px;height:14px;border-radius:4px;" :style="{background:s.컬러코드}"></div>
+          <span style="font-size:15px;font-weight:600;">{{ s.과목명 }}</span>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button @click="openSubjectModal(s)" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;">✏️</button>
+          <button @click="delSubject(s.id)" style="background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;">🗑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</template>
+</main>
+
+<!-- ============ RECORD MODAL ============ -->
+<div v-if="showRecordModal" class="modal-overlay" @click.self="showRecordModal=false">
+  <div class="modal-box">
+    <div style="font-size:18px;font-weight:800;margin-bottom:20px;" class="neon-cyan">
+      {{ editRecord.id ? '📝 기록 수정' : '📝 새 학습 기록' }}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">날짜</label>
+        <input type="date" v-model="editRecord.날짜" class="input-glass">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">과목</label>
+        <select v-model="editRecord.과목" class="input-glass">
+          <option v-for="s in subjects" :key="s.id" :value="s.과목명">{{ s.과목명 }}</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">학습 내용</label>
+        <textarea v-model="editRecord.내용" class="input-glass" placeholder="오늘 무엇을 공부했나요?"></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">상태</label>
+        <div style="display:flex;gap:8px;">
+          <button v-for="st in ['진행중','완료','보류']" :key="st" @click="editRecord.상태=st"
+            class="btn-neon sm" :class="{green: editRecord.상태===st && st==='완료', pink: editRecord.상태===st && st==='보류'}"
+            :style="{borderColor: editRecord.상태===st?'':'rgba(255,255,255,0.1)', color: editRecord.상태===st?'':'var(--text-muted)', background: editRecord.상태===st?'':'transparent'}">
+            {{ statusIcon(st) }} {{ st }}
+          </button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">이해도</label>
+        <div class="und-bar">
+          <div v-for="n in 5" :key="n" class="und-dot" :class="{active: editRecord.이해도 >= n}"
+            :style="{background: editRecord.이해도>=n ? undColor(n) : 'transparent', borderColor: editRecord.이해도>=n ? undColor(n) : 'rgba(255,255,255,0.1)'}"
+            @click="editRecord.이해도=n">
+            {{ n }}
+          </div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">학습 시간 (분)</label>
+        <input type="number" v-model.number="editRecord['시간(분)']" class="input-glass" min="0" placeholder="0">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">메모</label>
+        <textarea v-model="editRecord.코멘트" class="input-glass" placeholder="추가 메모 (선택)"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:24px;">
+      <button @click="showRecordModal=false" class="btn-neon pink" style="flex:1;">취소</button>
+      <button @click="saveRecord()" class="btn-neon green" style="flex:1;" :disabled="saving">
+        {{ saving ? '저장 중...' : (editRecord.id ? '수정' : '저장') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GOAL MODAL ============ -->
+<div v-if="showGoalModal" class="modal-overlay" @click.self="showGoalModal=false">
+  <div class="modal-box">
+    <div style="font-size:18px;font-weight:800;margin-bottom:20px;" class="neon-cyan">🎯 새 목표</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">과목</label>
+        <select v-model="editGoal.과목" class="input-glass">
+          <option value="">전체</option>
+          <option v-for="s in subjects" :key="s.id" :value="s.과목명">{{ s.과목명 }}</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">목표 내용</label>
+        <textarea v-model="editGoal.목표내용" class="input-glass" placeholder="달성하고 싶은 목표를 적어주세요"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:24px;">
+      <button @click="showGoalModal=false" class="btn-neon pink" style="flex:1;">취소</button>
+      <button @click="saveGoal()" class="btn-neon green" style="flex:1;" :disabled="saving">{{ saving?'저장 중...':'저장' }}</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SUBJECT MODAL ============ -->
+<div v-if="showSubjectModal" class="modal-overlay" @click.self="showSubjectModal=false">
+  <div class="modal-box">
+    <div style="font-size:18px;font-weight:800;margin-bottom:20px;" class="neon-purple">📘 과목 {{ editSubject.id ? '수정' : '추가' }}</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">과목명</label>
+        <input v-model="editSubject.과목명" class="input-glass" placeholder="예: 물리학Ⅰ">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">컬러코드</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="color" v-model="editSubject.컬러코드" style="width:40px;height:40px;border:none;border-radius:8px;cursor:pointer;background:transparent;">
+          <input v-model="editSubject.컬러코드" class="input-glass" style="flex:1;">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:24px;">
+      <button @click="showSubjectModal=false" class="btn-neon pink" style="flex:1;">취소</button>
+      <button @click="saveSubject()" class="btn-neon green" style="flex:1;" :disabled="saving">{{ saving?'저장 중...':'저장' }}</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+// ============================================================
+// ★★★ 여기에 본인의 GAS 웹 앱 URL을 붙여넣으세요 ★★★
+const GAS_URL = 'YOUR_GAS_WEB_APP_URL_HERE';
+// ============================================================
+
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+createApp({
+  setup() {
+    // --- State ---
+    const selectedYear = ref('2026');
+    const years = [
+      { value:'2026', label:'고1' },
+      { value:'2027', label:'고2' },
+      { value:'2028', label:'고3' }
+    ];
+    const parentMode = ref(false);
+    const activeTab = ref('dashboard');
+    const tabs = [
+      { id:'dashboard', icon:'📊', label:'대시보드' },
+      { id:'records', icon:'📝', label:'기록' },
+      { id:'goals', icon:'🎯', label:'목표' },
+      { id:'subjects', icon:'📘', label:'과목' }
+    ];
+    const loading = ref(false);
+    const saving = ref(false);
+    const toasts = ref([]);
+
+    // Data
+    const records = ref([]);
+    const subjects = ref([]);
+    const cheers = ref([]);
+    const goals = ref([]);
+    const stats = ref({});
+    const filterSubject = ref('');
+
+    // Modals
+    const showRecordModal = ref(false);
+    const editRecord = ref({});
+    const showGoalModal = ref(false);
+    const editGoal = ref({});
+    const showSubjectModal = ref(false);
+    const editSubject = ref({});
+    const cheerMsg = ref('');
+    const quickEmojis = ['🔥','👏','💯','❤️','💪','🌟','🏆','😍'];
+
+    // Charts
+    let subjChart = null;
+    let dailyChartInst = null;
+
+    // --- Computed ---
+    const filteredRecords = computed(() => {
+      let list = records.value.slice().sort((a,b) => (b.날짜||'').localeCompare(a.날짜||''));
+      if (filterSubject.value) list = list.filter(r => r.과목 === filterSubject.value);
+      return list;
+    });
+    const goalPercent = computed(() => {
+      if (!stats.value.goalTotal) return 0;
+      return Math.round((stats.value.goalDone / stats.value.goalTotal) * 100);
+    });
+
+    // --- API helper ---
+    async function api(action, extra={}) {
+      if (GAS_URL === 'YOUR_GAS_WEB_APP_URL_HERE') {
+        // Demo mode
+        return demoData(action, extra);
+      }
+      try {
+        const body = { action, year: selectedYear.value, ...extra };
+        const res = await fetch(GAS_URL, {
+          method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify(body)
+        });
+        return await res.json();
+      } catch(e) {
+        toast('네트워크 오류: '+e.message, 'var(--pink)');
+        return { error: e.message };
+      }
+    }
+
+    // --- Demo data ---
+    function demoData(action, extra) {
+      const demoSubjects = [
+        { id:'1', 학년도:'2026', 과목명:'국어', 컬러코드:'#00f0ff' },
+        { id:'2', 학년도:'2026', 과목명:'수학', 컬러코드:'#ff3e8e' },
+        { id:'3', 학년도:'2026', 과목명:'영어', 컬러코드:'#a855f7' },
+        { id:'4', 학년도:'2026', 과목명:'역사(한국사)', 컬러코드:'#d4a017' },
+        { id:'5', 학년도:'2026', 과목명:'통합사회', 컬러코드:'#22d3ee' },
+        { id:'6', 학년도:'2026', 과목명:'통합과학', 컬러코드:'#34d399' }
+      ];
+      const today = new Date().toISOString().slice(0,10);
+      const demoRecords = [
+        { id:'r1', 날짜:today, 과목:'수학', 내용:'이차방정식의 근과 계수의 관계', 상태:'완료', 이해도:4, '시간(분)':60, 코멘트:'공식 암기 필요' },
+        { id:'r2', 날짜:today, 과목:'영어', 내용:'Reading Comprehension Unit 3', 상태:'진행중', 이해도:3, '시간(분)':45, 코멘트:'' },
+        { id:'r3', 날짜:today, 과목:'역사(한국사)', 내용:'고려 시대 정치 변동', 상태:'완료', 이해도:5, '시간(분)':50, 코멘트:'무신정변 흐름 정리 완료' },
+        { id:'r4', 날짜:today, 과목:'국어', 내용:'현대시 감상 - 윤동주', 상태:'보류', 이해도:2, '시간(분)':30, 코멘트:'' },
+      ];
+      if (action==='getSubjects') return { success:true, subjects: demoSubjects };
+      if (action==='getRecords') return { success:true, records: demoRecords };
+      if (action==='getCheers') return { success:true, cheers: [{ id:'c1', 메시지:'오늘도 화이팅! 🔥', 생성일시: new Date().toISOString() }] };
+      if (action==='getGoals') return { success:true, goals: [
+        { id:'g1', 과목:'수학', 목표내용:'1학기 중간고사 1등급', 달성여부:false },
+        { id:'g2', 과목:'영어', 목표내용:'영단어 1000개 외우기', 달성여부:'TRUE' }
+      ]};
+      if (action==='getStats') return { success:true, stats: {
+        totalRecords:4, totalMinutes:185, avgUnderstanding:'3.5', completionRate:50,
+        streak:3, goalTotal:2, goalDone:1,
+        subjectStats: { '수학':{totalMin:60}, '영어':{totalMin:45}, '역사(한국사)':{totalMin:50}, '국어':{totalMin:30} },
+        dailyMinutes: (()=>{ const m={}; for(let i=0;i<7;i++){ const d=new Date(); d.setDate(d.getDate()-i); m[d.toISOString().slice(0,10)]=Math.floor(Math.random()*120+30); } return m; })()
+      }};
+      if (action==='addRecord'||action==='addCheer'||action==='addGoal'||action==='addSubject') return { success:true, id:'new_'+Date.now() };
+      if (action==='updateRecord'||action==='updateGoal'||action==='updateSubject'||action==='deleteRecord'||action==='deleteGoal'||action==='deleteSubject') return { success:true };
+      return { success:true };
+    }
+
+    // --- Load all data ---
+    async function loadAll() {
+      loading.value = true;
+      const [sRes, rRes, cRes, gRes, stRes] = await Promise.all([
+        api('getSubjects'),
+        api('getRecords'),
+        api('getCheers'),
+        api('getGoals'),
+        api('getStats')
+      ]);
+      if (sRes.subjects) subjects.value = sRes.subjects;
+      if (rRes.records) records.value = rRes.records;
+      if (cRes.cheers) cheers.value = cRes.cheers;
+      if (gRes.goals) goals.value = gRes.goals;
+      if (stRes.stats) stats.value = stRes.stats;
+      loading.value = false;
+      await nextTick();
+      renderCharts();
+    }
+
+    // --- Toast ---
+    function toast(msg, color, bg) {
+      const t = { msg, color: color||'var(--cyan)', bg: bg||'rgba(0,240,255,0.12)' };
+      toasts.value.push(t);
+      setTimeout(() => { const idx = toasts.value.indexOf(t); if(idx>-1) toasts.value.splice(idx,1); }, 3000);
+    }
+
+    // --- Records CRUD ---
+    function openRecordModal(r) {
+      if (r) {
+        editRecord.value = { ...r };
+      } else {
+        editRecord.value = {
+          날짜: new Date().toISOString().slice(0,10),
+          학년도: selectedYear.value,
+          과목: subjects.value[0]?.과목명 || '',
+          내용: '', 상태:'진행중', 이해도:3, '시간(분)':0, 코멘트:''
+        };
+      }
+      showRecordModal.value = true;
+    }
+    async function saveRecord() {
+      const d = editRecord.value;
+      if (!d.내용.trim()) { toast('학습 내용을 입력해주세요','var(--pink)'); return; }
+      saving.value = true;
+      d.학년도 = selectedYear.value;
+      if (d.id) { await api('updateRecord', { data:d }); }
+      else { await api('addRecord', { data:d }); }
+      showRecordModal.value = false;
+      saving.value = false;
+      toast(d.id?'수정 완료 ✏️':'기록 추가 완료 ✅','var(--green)','rgba(52,211,153,0.12)');
+      loadAll();
+    }
+    async function delRecord(id) {
+      if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+      await api('deleteRecord', { id });
+      toast('삭제 완료','var(--pink)','rgba(255,62,142,0.12)');
+      loadAll();
+    }
+
+    // --- Goals ---
+    function openGoalModal() {
+      editGoal.value = { 학년도:selectedYear.value, 과목:'', 목표내용:'' };
+      showGoalModal.value = true;
+    }
+    async function saveGoal() {
+      if (!editGoal.value.목표내용.trim()) { toast('목표를 입력해주세요','var(--pink)'); return; }
+      saving.value = true;
+      editGoal.value.학년도 = selectedYear.value;
+      await api('addGoal', { data:editGoal.value });
+      showGoalModal.value = false; saving.value = false;
+      toast('목표 추가 완료 🎯','var(--green)','rgba(52,211,153,0.12)');
+      loadAll();
+    }
+    async function toggleGoal(g) {
+      const done = !(g.달성여부==='TRUE'||g.달성여부===true);
+      await api('updateGoal', { data:{ id:g.id, 달성여부:done } });
+      toast(done?'목표 달성! 🎉':'목표 진행 중','var(--green)','rgba(52,211,153,0.12)');
+      loadAll();
+    }
+    async function delGoal(id) {
+      if (!confirm('이 목표를 삭제하시겠습니까?')) return;
+      await api('deleteGoal', { id });
+      loadAll();
+    }
+
+    // --- Subjects ---
+    function openSubjectModal(s) {
+      editSubject.value = s ? { ...s } : { 학년도:selectedYear.value, 과목명:'', 컬러코드:'#00f0ff' };
+      showSubjectModal.value = true;
+    }
+    async function saveSubject() {
+      if (!editSubject.value.과목명.trim()) { toast('과목명을 입력해주세요','var(--pink)'); return; }
+      saving.value = true;
+      editSubject.value.학년도 = selectedYear.value;
+      if (editSubject.value.id) { await api('updateSubject', { data:editSubject.value }); }
+      else { await api('addSubject', { data:editSubject.value }); }
+      showSubjectModal.value = false; saving.value = false;
+      toast('과목 저장 완료 📘','var(--purple)','rgba(168,85,247,0.12)');
+      loadAll();
+    }
+    async function delSubject(id) {
+      if (!confirm('이 과목을 삭제하시겠습니까?')) return;
+      await api('deleteSubject', { id });
+      loadAll();
+    }
+
+    // --- Cheers ---
+    async function sendCheer(msg) {
+      if (!msg || !msg.trim()) return;
+      await api('addCheer', { data:{ 학년도:selectedYear.value, 메시지:msg } });
+      toast('응원 전송 완료! 💌','var(--gold-light)','rgba(212,160,23,0.12)');
+      cheerMsg.value = '';
+      loadAll();
+    }
+
+    // --- Charts ---
+    function renderCharts() {
+      renderSubjectChart();
+      renderDailyChart();
+    }
+    function renderSubjectChart() {
+      const canvas = document.getElementById('subjectChart');
+      if (!canvas) return;
+      if (subjChart) subjChart.destroy();
+      const ss = stats.value.subjectStats || {};
+      const labels = Object.keys(ss);
+      const data = labels.map(l => ss[l].totalMin || 0);
+      const colors = labels.map(l => {
+        const found = subjects.value.find(s => s.과목명 === l);
+        return found ? found.컬러코드 : '#00f0ff';
+      });
+      subjChart = new Chart(canvas, {
+        type:'bar',
+        data:{ labels, datasets:[{ data, backgroundColor:colors.map(c=>c+'66'), borderColor:colors, borderWidth:1 }] },
+        options:{
+          responsive:true, plugins:{ legend:{display:false} },
+          scales:{
+            x:{ ticks:{color:'#7a7f8a',font:{size:11}}, grid:{color:'rgba(255,255,255,0.04)'} },
+            y:{ ticks:{color:'#7a7f8a',font:{size:10},callback:v=>v+'분'}, grid:{color:'rgba(255,255,255,0.04)'} }
+          }
+        }
+      });
+    }
+    function renderDailyChart() {
+      const canvas = document.getElementById('dailyChart');
+      if (!canvas) return;
+      if (dailyChartInst) dailyChartInst.destroy();
+      const dm = stats.value.dailyMinutes || {};
+      const sorted = Object.entries(dm).sort((a,b)=>a[0].localeCompare(b[0])).slice(-14);
+      dailyChartInst = new Chart(canvas, {
+        type:'line',
+        data:{
+          labels:sorted.map(([d])=>d.slice(5)),
+          datasets:[{ data:sorted.map(([,v])=>v), borderColor:'#00f0ff', backgroundColor:'rgba(0,240,255,0.08)', fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'#00f0ff' }]
+        },
+        options:{
+          responsive:true, plugins:{ legend:{display:false} },
+          scales:{
+            x:{ ticks:{color:'#7a7f8a',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+            y:{ ticks:{color:'#7a7f8a',font:{size:10},callback:v=>v+'분'}, grid:{color:'rgba(255,255,255,0.04)'} }
+          }
+        }
+      });
+    }
+
+    // --- Helpers ---
+    function chipStyle(subj) {
+      const found = subjects.value.find(s => s.과목명 === subj);
+      const c = found ? found.컬러코드 : '#00f0ff';
+      return { background:c+'18', color:c, border:'1px solid '+c+'33' };
+    }
+    function statusIcon(st) { return st==='완료'?'✅':st==='진행중'?'🔄':'⏸️'; }
+    function undColor(n) {
+      const colors = ['#ff3e8e','#ff8c42','#f5d76e','#34d399','#00f0ff'];
+      return colors[n-1];
+    }
+    function formatMin(m) {
+      if (!m) return '0';
+      if (m<60) return m+'분';
+      return Math.floor(m/60)+'h '+((m%60)||'');
+    }
+    function formatDate(d) {
+      if (!d) return '';
+      try { return new Date(d).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+      catch { return d; }
+    }
+
+    // --- Init ---
+    onMounted(() => { loadAll(); });
+
+    // Watch tab changes for chart re-render
+    watch(activeTab, async (t) => {
+      if (t==='dashboard') { await nextTick(); renderCharts(); }
+    });
+
+    return {
+      selectedYear, years, parentMode, activeTab, tabs,
+      loading, saving, toasts,
+      records, subjects, cheers, goals, stats,
+      filterSubject, filteredRecords, goalPercent,
+      showRecordModal, editRecord, showGoalModal, editGoal,
+      showSubjectModal, editSubject,
+      cheerMsg, quickEmojis,
+      openRecordModal, saveRecord, delRecord,
+      openGoalModal, saveGoal, toggleGoal, delGoal,
+      openSubjectModal, saveSubject, delSubject,
+      sendCheer,
+      chipStyle, statusIcon, undColor, formatMin, formatDate,
+      loadAll, toast
+    };
+  }
+}).mount('#app');
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
